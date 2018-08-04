@@ -5,7 +5,7 @@ import fitting
 
 argv = sys.argv
 if len(argv) != 2:
-    print("Usage: test_fitting mle_norm|map_norm|by_norm")
+    print("Usage: python test_fitting.py mle_norm|map_norm|by_norm|mle_cat|map_cat|by_cat")
     sys.exit(-1)
 
 def gaussian(x, mu, sig):
