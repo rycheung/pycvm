@@ -1,7 +1,9 @@
-import sys
+import sys, os
+sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+
+import fitting
 import numpy as np
 import matplotlib.pyplot as plt
-import fitting
 
 argv = sys.argv
 if len(argv) != 2:
@@ -23,8 +25,8 @@ if argv[1] == "mle_norm":
 
         mu_error = np.abs(original_mu - estimated_mu)
         sig_error = np.abs(original_sig - estimated_sig)
-        print("Mu error:", mu_error, end="")
-        print("\nSig error:", sig_error, end="")
+        print("Mu error:", mu_error, end="\n")
+        print("Sig error:", sig_error, end="\n\n")
 
         x = np.arange(-20, 30, 0.01)
         original = gaussian(x, original_mu, original_sig)
@@ -48,8 +50,8 @@ elif argv[1] == "map_norm":
 
         mu_error = np.abs(original_mu - estimated_mu)
         sig_error = np.abs(original_sig - estimated_sig)
-        print("Mu error:", mu_error, end="")
-        print("\nSig error:", sig_error, end="")
+        print("Mu error:", mu_error, end="\n")
+        print("Sig error:", sig_error, end="\n\n")
 
         x = np.arange(-20, 30, 0.01)
         original = gaussian(x, original_mu, original_sig)
