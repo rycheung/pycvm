@@ -2,10 +2,11 @@ import numpy as np
 from scipy.special import gamma as gamma_func
 
 def mle_norm(x):
-    """Maximum likelihood learning for normal distribution
+    """Maximum likelihood learning for normal distribution.
 
-    Input:  Training data (x)
-    Output: Maximum likelihood estimates of parameters (mu, var)
+    Input:  x   - training data.
+    Output: mu  - mean of the normal distribution.
+            var - variance of the normal distribution.
     """
     I = x.size
     mu = np.sum(x) / I
@@ -13,11 +14,15 @@ def mle_norm(x):
     return (mu, var)
 
 def map_norm(x, alpha, beta, gamma, delta):
-    """MAP learning for normal distribution
+    """MAP learning for normal distribution.
 
-    Input:  Training data (x),
-            Hyperparameters alpha, beta, gamma, delta
-    Output: MAP estimates of params (mu, var)
+    Input:  x     - training data.
+            alpha - hyperparameter of normal-scaled inverse gamma distribution.
+            beta  - hyperparameter of normal-scaled inverse gamma distribution.
+            gamma - hyperparameter of normal-scaled inverse gamma distribution.
+            delta - hyperparameter of normal-scaled inverse gamma distribution.
+    Output: mu    - mean of the normal distribution.
+            var   - variance of the normal distribution.
     """
     I = x.size
     mu = (np.sum(x) + gamma * delta) / (I + gamma)
@@ -27,13 +32,19 @@ def map_norm(x, alpha, beta, gamma, delta):
     return (mu, var)
 
 def by_norm(x, alpha_prior, beta_prior, gamma_prior, delta_prior, x_test):
-    """Bayesian approach to normal distribution
+    """Bayesian approach to normal distribution.
 
-    Input:  Training data (x),
-            Hyperparameters (alpha_prior, beta_prior, gamma_prior, delta_prior),
-            Test data (x_test)
-    Output: Posterior parameters (alpha_post, beta_post, gamma_post, delta_post),
-            Predictive distribution (x_prediction)
+    Input:  x            - training data.
+            alpha_prior  - hyperparameter of normal-scaled inverse gamma distribution.
+            beta_prior   - hyperparameter of normal-scaled inverse gamma distribution.
+            gamma_prior  - hyperparameter of normal-scaled inverse gamma distribution.
+            delta_prior  - hyperparameter of normal-scaled inverse gamma distribution.
+            x_test       - test data.
+    Output: alpha_post   - posterior parameters.
+            beta_post    - posterior parameters.
+            gamma_post   - posterior parameters.
+            delta_post   - posterior parameters.
+            x_prediction - predictive distribution.
     """
     I = x.size
     x_sum = np.sum(x)
@@ -61,22 +72,22 @@ def by_norm(x, alpha_prior, beta_prior, gamma_prior, delta_prior, x_test):
     return (alpha_post, beta_post, gamma_post, delta_post, x_prediction)
 
 def mle_cat(x, K):
-    """Maximum likelihood learning for categorical distribution
+    """Maximum likelihood learning for categorical distribution.
 
-    Input:  Training data (x),
-            The number of categorical parameters (K)
-    Output: ML estimate of categorical parameters (theta)
+    Input:  x     - training data.
+            K     - the number of categorical parameters.
+    Output: theta - ML estimate of categorical parameters.
     """
     counts = np.histogram(x, np.arange(1, K + 2))[0]
     theta = counts / x.size
     return theta
 
 def map_cat(x, alpha):
-    """MAP learning for categorical distribution with conjugate prior
+    """MAP learning for categorical distribution with conjugate prior.
 
-    Input:  Training data (x),
-            Hyperparameters (alpha)
-    Output: MAP estimate of categorical parameters (theta)
+    Input:  x     - training data.
+            alpha - hyperparameters of Dirichlet distribution.
+    Output: theta - MAP estimate of categorical parameters.
     """
     K = alpha.size
     counts = np.histogram(x, np.arange(1, K + 2))[0]
@@ -85,12 +96,12 @@ def map_cat(x, alpha):
     return theta
 
 def by_cat(x, alpha_prior):
-    """MAP learning for categorical distribution with conjugate prior
+    """Bayesian approach for categorical distribution.
 
-    Input:  Training data (x),
-            Hyperparameters (alpha_prior)
-    Output: Posterior parameters (alpha_post),
-            Predictive distribution (x_prediction)
+    Input:  x            - training data.
+            alpha_prior  - hyperparameters of Dirichlet distribution.
+    Output: alpha_post   - Posterior parameters.
+            x_prediction - predictive distribution.
     """
     K = alpha_prior.size
     counts = np.histogram(x, np.arange(1, K + 2))[0]
