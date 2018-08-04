@@ -84,44 +84,44 @@ elif argv[1] == 'mle_cat':
     I_list = [5, 30, 500, 1000000]
     for index, I in enumerate(I_list):
         original_probabilities = np.array([0.25, 0.15, 0.1, 0.1, 0.15, 0.25])
-        r = np.random.choice(np.arange(1, 7), I, p=original_probabilities)
+        r = np.random.choice(np.arange(6), I, p=original_probabilities)
         estimated_probabilities = fitting.mle_cat(r, 6)
         
         plt.figure("ML Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(1, 7), original_probabilities, 1, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(1, 7), estimated_probabilities, 1, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
     plt.show()
 
 elif argv[1] == 'map_cat':
     I_list = [5, 30, 500, 1000000]
     for index, I in enumerate(I_list):
         original_probabilities = np.array([0.25, 0.15, 0.1, 0.1, 0.15, 0.25])
-        r = np.random.choice(np.arange(1, 7), I, p=original_probabilities)
+        r = np.random.choice(np.arange(6), I, p=original_probabilities)
 
         prior = np.array([10, 5, 4, 4, 5, 10])
         estimated_probabilities = fitting.map_cat(r, prior)
         
         plt.figure("MAP Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(1, 7), original_probabilities, 1, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(1, 7), estimated_probabilities, 1, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
     plt.show()
 
 elif argv[1] == 'by_cat':
     I_list = [5, 30, 500, 1000000]
     for index, I in enumerate(I_list):
         original_probabilities = np.array([0.25, 0.15, 0.1, 0.1, 0.15, 0.25])
-        r = np.random.choice(np.arange(1, 7), I, p=original_probabilities)
+        r = np.random.choice(np.arange(6), I, p=original_probabilities)
 
         prior = np.array([10, 5, 4, 4, 5, 10])
         estimated_probabilities = fitting.by_cat(r, prior)[1]
         
         plt.figure("Bayesian Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(1, 7), original_probabilities, 1, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(1, 7), estimated_probabilities, 1, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
     plt.show()

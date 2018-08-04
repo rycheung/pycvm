@@ -78,7 +78,7 @@ def mle_cat(x, K):
             K     - the number of categorical parameters.
     Output: theta - ML estimate of categorical parameters.
     """
-    counts = np.histogram(x, np.arange(1, K + 2))[0]
+    counts = np.histogram(x, np.arange(K + 1))[0]
     theta = counts / x.size
     return theta
 
@@ -90,7 +90,7 @@ def map_cat(x, alpha):
     Output: theta - MAP estimate of categorical parameters.
     """
     K = alpha.size
-    counts = np.histogram(x, np.arange(1, K + 2))[0]
+    counts = np.histogram(x, np.arange(K + 1))[0]
     tmp = counts + alpha - 1
     theta = tmp / np.sum(tmp)
     return theta
@@ -104,7 +104,7 @@ def by_cat(x, alpha_prior):
             x_prediction - predictive distribution.
     """
     K = alpha_prior.size
-    counts = np.histogram(x, np.arange(1, K + 2))[0]
+    counts = np.histogram(x, np.arange(K + 1))[0]
     alpha_post = counts + alpha_prior
     prediction = alpha_post / np.sum(alpha_post)
     return (alpha_post, prediction)
