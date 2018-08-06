@@ -1,9 +1,10 @@
+# pylint: disable=E0611
 import numpy as np
+from scipy import optimize
 from scipy.special import \
     gamma as gamma_func, \
     gammaln as gammaln_func, \
     digamma as digamma_func \
-
 
 
 def gaussian_pdf(X, mu, sig):
@@ -273,7 +274,7 @@ def em_mog(x, K, precision):
 
 
 def em_t_distribution(x, precision):
-    """Fitting mixture of Gaussians using EM algorithm.
+    """Fitting t-distribution using EM algorithm.
 
     Input:  x         - training data.
             precision - the algorithm stops when the difference between the
@@ -287,19 +288,19 @@ def em_t_distribution(x, precision):
 
     # Init mu to the mean of the dataset
     mu = np.sum(x, axis=0) / I
-    mu = mu.reshape((1, D))
 
     # Init sig to the covariance of the dataset
-    sig = np.zeros(D, D)
+    sig = np.zeros((D, D))
     x_minus_mu = x - mu
     for i in range(I):
         mat = x_minus_mu[i, :].reshape((D, 1))
-        mat = mat * mat.transpose()
+        mat = mat @ mat.transpose()
         sig += mat
     sig /= I
 
     # Init nu to 1000
-    nu = 1000
+    nu_upper_bound = 1000
+    nu = nu_upper_bound
 
     iterations = 0
     previous_L = 2000000
@@ -314,30 +315,30 @@ def em_t_distribution(x, precision):
         x_minus_mu = x - mu
         temp = x_minus_mu @ np.linalg.pinv(sig)
         for i in range(I):
-            delta[i, 0] = temp[i, :].reshape((1, D)) @ \
-                x_minus_mu[i].reshape((D, 1))
+            delta[i, 0] = (temp[i, :].reshape((1, D))) @ \
+                (x_minus_mu[i, :].reshape((D, 1)))
 
         # Compute E_hi and E_log_hi
         nu_plus_delta = nu + delta
         E_hi = (nu + D) / nu_plus_delta
         E_log_hi = digamma_func((nu + D) / 2) - np.log(nu_plus_delta / 2)
-
+        
         # Maximization step
         # Update mu
         E_hi_sum = np.sum(E_hi)
-        mu = np.sum(x * delta, axis=0) / E_hi_sum
+        mu = np.sum(x * E_hi, axis=0) / E_hi_sum
 
         # Update sig
         x_minus_mu = x - mu
-        sig = np.zeros(D, D)
+        sig = np.zeros((D, D))
         for i in range(I):
             xmm = x_minus_mu[i, :].reshape((D, 1))
-            sig += E_hi[i] * xmm * xmm.transpose()
+            sig += E_hi[i] * (xmm @ xmm.transpose())
         sig /= E_hi_sum
 
         # Update nu by minimizing a cost function with line search
-        nu = _fit_t_minimize_cost(E_hi, E_log_hi)
-
+        nu = optimize.fminbound(_fit_t_cost, 1, nu_upper_bound, (E_hi, E_log_hi)) 
+        
         # Compute data log likelihood
         temp = x_minus_mu @ np.linalg.pinv(sig)
         for i in range(I):
@@ -348,7 +349,13 @@ def em_t_distribution(x, precision):
             I * np.log(np.linalg.det(sig)) / 2 - \
             I * gammaln_func(nu / 2)
         L = L - (nu + D) * np.sum(np.log(1 + delta / nu)) / 2
+    return mu, sig, nu
 
-
-def _fit_t_minimize_cost(E_hi, E_log_hi):
-    return 1
+def _fit_t_cost(nu, E_hi, E_log_hi):
+    nu_half = nu / 2
+    I = E_hi.size
+    val = I * (nu_half * np.log(nu_half) - gammaln_func(nu_half))
+    val = val + (nu_half - 1) * np.sum(E_log_hi)
+    val = val - nu_half * np.sum(E_hi)
+    val *= -1
+    return val
