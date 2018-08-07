@@ -1,6 +1,11 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+sys.path.append(
+    os.path.abspath(
+        os.path.join(os.path.abspath(__file__), '..', '..')
+    )
+)
+
 
 import fitting
 import numpy as np
@@ -8,7 +13,7 @@ import matplotlib.pyplot as plt
 
 argv = sys.argv
 if len(argv) != 2:
-    print("Usage: python test_fitting_pdf.py t_pdf|gamma_pdf")
+    print("Usage: python test_fitting_pdf.py t_pdf|gamma_pdf|mul_t_pdf")
     sys.exit(-1)
 
 if argv[1] == "t_pdf":
@@ -100,3 +105,6 @@ elif argv[1] == "mul_t_pdf":
     plt.axis([-10, 10, -10, 10])
     plt.contour(XX, YY, results)
     plt.show()
+
+else:
+    print("Usage: python test_fitting_pdf.py t_pdf|gamma_pdf|mul_t_pdf")

@@ -14,6 +14,7 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `by_cat`: MAP learning for categorical distribution with conjugate prior.
 - Function `em_mog`: Fitting mixture of Gaussians using EA algorithm.
 - Function `em_t_distribution`: Fitting t-distribution using EM algorithm.
+- Function `em_factor_analyzer`: Fitting a factor analyzer using EM algorithm.
 
 ### Module `classification`
 - Function `basic_generative` Basic classification based on multivariate measurement vector.

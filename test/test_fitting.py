@@ -1,5 +1,11 @@
-import sys, os
-sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+import sys
+import os
+sys.path.append(
+    os.path.abspath(
+        os.path.join(os.path.abspath(__file__), '..', '..')
+    )
+)
+
 
 import fitting
 import numpy as np
@@ -10,8 +16,10 @@ if len(argv) != 2:
     print("Usage: python test_fitting.py mle_norm|map_norm|by_norm|mle_cat|map_cat|by_cat")
     sys.exit(-1)
 
+
 def gaussian(x, mu, sig):
     return 1 / np.sqrt(2 * np.pi * sig ** 2) * np.exp(-0.5 * (x - mu) ** 2 / (sig ** 2))
+
 
 if argv[1] == "mle_norm":
     I_list = [5, 30, 1000, 1000000]
@@ -71,8 +79,9 @@ elif argv[1] == 'by_norm':
         r = np.random.normal(original_mu, original_sig, I)
 
         x_test = np.arange(-20, 30, 0.01)
-        alpha_post, beta_post, gamma_post, delta_post, x_prediction = fitting.by_norm(r, 1, 1, 1, 0, x_test)
-        
+        alpha_post, beta_post, gamma_post, delta_post, x_prediction = fitting.by_norm(
+            r, 1, 1, 1, 0, x_test)
+
         original = gaussian(x_test, original_mu, original_sig)
         estimated = x_prediction
 
@@ -88,12 +97,14 @@ elif argv[1] == 'mle_cat':
         original_probabilities = np.array([0.25, 0.15, 0.1, 0.1, 0.15, 0.25])
         r = np.random.choice(np.arange(6), I, p=original_probabilities)
         estimated_probabilities = fitting.mle_cat(r, 6)
-        
+
         plt.figure("ML Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities,
+                0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities,
+                0.8, align="center", color="r")
     plt.show()
 
 elif argv[1] == 'map_cat':
@@ -104,12 +115,14 @@ elif argv[1] == 'map_cat':
 
         prior = np.array([10, 5, 4, 4, 5, 10])
         estimated_probabilities = fitting.map_cat(r, prior)
-        
+
         plt.figure("MAP Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities,
+                0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities,
+                0.8, align="center", color="r")
     plt.show()
 
 elif argv[1] == 'by_cat':
@@ -120,10 +133,15 @@ elif argv[1] == 'by_cat':
 
         prior = np.array([10, 5, 4, 4, 5, 10])
         estimated_probabilities = fitting.by_cat(r, prior)[1]
-        
+
         plt.figure("Bayesian Cat")
         plt.subplot(421 + index * 2)
-        plt.bar(np.arange(6), original_probabilities, 0.8, align="center", color="blue")
+        plt.bar(np.arange(6), original_probabilities,
+                0.8, align="center", color="blue")
         plt.subplot(422 + index * 2)
-        plt.bar(np.arange(6), estimated_probabilities, 0.8, align="center", color="r")
+        plt.bar(np.arange(6), estimated_probabilities,
+                0.8, align="center", color="r")
     plt.show()
+
+else:
+    print("Usage: python test_fitting.py mle_norm|map_norm|by_norm|mle_cat|map_cat|by_cat")

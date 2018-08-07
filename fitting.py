@@ -7,6 +7,7 @@ from scipy.special import \
     digamma as digamma_func \
 
 
+
 def gaussian_pdf(X, mu, sig):
     """ Multivariate Gaussian distribution.
     Input:  X   - input data.
@@ -322,7 +323,7 @@ def em_t_distribution(x, precision):
         nu_plus_delta = nu + delta
         E_hi = (nu + D) / nu_plus_delta
         E_log_hi = digamma_func((nu + D) / 2) - np.log(nu_plus_delta / 2)
-        
+
         # Maximization step
         # Update mu
         E_hi_sum = np.sum(E_hi)
@@ -337,8 +338,9 @@ def em_t_distribution(x, precision):
         sig /= E_hi_sum
 
         # Update nu by minimizing a cost function with line search
-        nu = optimize.fminbound(_fit_t_cost, 1, nu_upper_bound, (E_hi, E_log_hi)) 
-        
+        nu = optimize.fminbound(
+            _fit_t_cost, 1, nu_upper_bound, (E_hi, E_log_hi))
+
         # Compute data log likelihood
         temp = x_minus_mu @ np.linalg.pinv(sig)
         for i in range(I):
@@ -351,6 +353,7 @@ def em_t_distribution(x, precision):
         L = L - (nu + D) * np.sum(np.log(1 + delta / nu)) / 2
     return mu, sig, nu
 
+
 def _fit_t_cost(nu, E_hi, E_log_hi):
     nu_half = nu / 2
     I = E_hi.size
@@ -359,3 +362,71 @@ def _fit_t_cost(nu, E_hi, E_log_hi):
     val = val - nu_half * np.sum(E_hi)
     val *= -1
     return val
+
+
+def em_factor_analyzer(x, K, iterations):
+    """Fitting a factor analyzer using EM algorithm.
+
+    Input:  x          - training data.
+            K          - the number of factors.
+            iterations - the number of iterations.
+    Output: mu         - mean vector of the distribution.
+            phi        - D*K parameters matrix, containing K factors in its columns.
+            sig        - D*1 vector representing the D*D diagonal covariance matrix.
+    """
+    I = x.shape[0]
+    D = x.shape[1]
+
+    # Init mu to the data mean
+    mu = np.sum(x, axis=0) / I
+
+    # Init phi to random values
+    phi = np.random.normal(0, 1, (D, K))
+
+    # Init sig by setting its diagonal elements to the variance of the D data dimensions
+    x_minus_mu = x - mu
+    sig = np.sum(x_minus_mu ** 2, axis=0) / I
+
+    iterations_count = 0
+    while iterations_count < iterations:
+        # Expectation step
+        sig_inv = np.diag(1 / sig)
+        phi_transpose_times_sig_inv = phi.transpose() @ sig_inv
+        temp = np.linalg.pinv(phi_transpose_times_sig_inv @ phi + np.eye(K))
+        E_hi = temp @ phi_transpose_times_sig_inv @ x_minus_mu.transpose()
+        E_hi_hi_transpose = []
+        for i in range(I):
+            e = E_hi[:, i].reshape((K, 1))
+            E_hi_hi_transpose.append(temp + e @ e.transpose())
+
+        # Maximization step
+        # Update phi
+        phi_1 = np.zeros((D, K))
+        phi_2 = np.zeros((K, K))
+        for i in range(I):
+            phi_1 += x_minus_mu[i, :].reshape((D, 1)) @ \
+                E_hi[:, i].reshape((1, K))
+            phi_2 += E_hi_hi_transpose[i]
+        phi = phi_1 @ np.linalg.pinv(phi_2)
+
+        # Update sig
+        sig = np.zeros(D)
+        for i in range(I):
+            xmm = x_minus_mu[i, :]
+            sig1 = xmm * xmm
+            sig2 = (phi @ E_hi[:, i].reshape((K, 1))).reshape(D) * xmm
+            sig += sig1 - sig2
+        sig = sig / I
+
+        # sig_diag = np.zeros((D, 1))
+        # for i in range(I):
+        #     xmm = x_minus_mu[i, :].reshape((D, 1))
+        #     sig_diag1 = xmm * xmm
+        #     sig_diag2 = (phi @ E_hi[:, i].reshape((K, 1))) * xmm
+        #     sig_diag += sig_diag1 - sig_diag2
+        # sig = sig_diag / I
+        # sig = sig.reshape(D)
+
+        iterations_count += 1
+
+    return (mu, phi, sig)

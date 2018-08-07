@@ -1,12 +1,20 @@
-import sys, os
-sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
+import sys
+import os
+sys.path.append(
+    os.path.abspath(
+        os.path.join(os.path.abspath(__file__), '..', '..')
+    )
+)
+
 
 import classification
 import numpy as np
 import matplotlib.pyplot as plt
 
+
 def gaussian(x, mu, sig):
     return 1 / np.sqrt(2 * np.pi * sig ** 2) * np.exp(-0.5 * (x - mu) ** 2 / (sig ** 2))
+
 
 N = 1000
 r1 = np.random.normal(-2, 0.5, (N, 1))
@@ -40,7 +48,6 @@ norm_pdf1 = gaussian(x, mu[0, 0], sig[0][0, 0])
 norm_pdf2 = gaussian(x, mu[1, 0], sig[1][0, 0])
 plt.plot(x, norm_pdf1, 'b')
 plt.plot(x, norm_pdf2, 'r')
-plt.axis([-4 , 4, 0, 2])
+plt.axis([-4, 4, 0, 2])
 
 plt.show()
-
