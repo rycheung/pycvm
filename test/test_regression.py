@@ -7,6 +7,7 @@ sys.path.append(
 )
 
 import fitting
+import kernel
 import regression
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,7 +19,7 @@ def gaussian(x, mu, sig):
 
 argv = sys.argv
 if len(argv) != 2:
-    print("Usage: python test_regression.py fit_linear|fit_by_linear")
+    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process")
     sys.exit(-1)
 
 if argv[1] == 'fit_linear':
@@ -126,5 +127,59 @@ elif argv[1] == "fit_by_linear":
 
     plt.show()
 
+elif argv[1] == "fit_gaussian_process":
+    granularity = 500
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+
+    # Generate 2D data from normal distribution
+    mu = np.array([[-3, 2], [0, -3], [4, 3]])
+    sig = np.array([[0.5, 0], [0, 0.5]])
+    X_data = np.append(
+        np.append(
+            np.random.multivariate_normal(mu[0], sig, 5),
+            np.random.multivariate_normal(mu[1], sig, 5),
+            axis=0
+        ),
+        np.random.multivariate_normal(mu[2], sig, 5),
+        axis=0
+    )
+
+    # Prepare the training input
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data[:, 0].reshape((1, X_data.shape[0])),
+        axis=0
+    )
+    w = X_data[:, 1].reshape((X_data.shape[0], 1))
+    var_prior = 6
+    X_test = domain.reshape((1, granularity))
+    X_test = np.append(np.ones((1, granularity)), X_test, axis=0)
+
+    # Train 6 Gaussian process regression model for different values for nu
+    plt.figure("Fit Gaussian process regression")
+    nus = [0.5, 0.7, 0.9, 1.5, 2, 3]
+    for nu_index, nu in enumerate(nus):
+        mu_test, var_test = regression.fit_gaussian_process(
+            X_train, w, var_prior, X_test,
+            lambda x_i, x_j: kernel.gaussian(x_i, x_j, nu)
+        )
+        Z = np.zeros((granularity, granularity))
+        for j in range(granularity):
+            mu = mu_test[j, 0]
+            var = var_test[j, 0]
+            for i in range(granularity):
+                ww = domain[i]
+                Z[i, j] = gaussian(ww, mu, var)
+
+        plt.subplot(3, 2, nu_index + 1)
+        plt.pcolor(X, Y, Z)
+        plt.scatter(X_data[:, 0], X_data[:, 1], edgecolors="w")
+        plt.axis([-5, 5, -5, 5])
+
+    plt.show()
+
 else:
-    print("Usage: python test_regression.py fit_linear|fit_by_linear")
+    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process")
