@@ -16,5 +16,8 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `em_t_distribution`: Fitting t-distribution using EM algorithm.
 - Function `em_factor_analyzer`: Fitting a factor analyzer using EM algorithm.
 
+### Module `regression`
+- Function `fit_linear`: ML fitting of linear regression model.
+
 ### Module `classification`
 - Function `basic_generative` Basic classification based on multivariate measurement vector.
