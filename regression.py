@@ -25,7 +25,7 @@ def fit_by_linear(X, w, var_prior, X_test):
                         and I is the number of training examples.
             w         - I * 1 vector containing world states for each example.
             var_prior - scale factor for the prior spherical covariance.
-            X_test    - test examples for which we need to make predictions
+            X_test    - test examples for which we need to make predictions.
     Output: mu_test   - I_test * 1 vector containing the means of the distribution 
                         for the test examples.
             var_test  - I_test * 1 vector containing the variance of the distribution 
@@ -88,7 +88,7 @@ def fit_gaussian_process(X, w, var_prior, X_test, kernel):
                         and I is the number of training examples.
             w         - I * 1 vector containing world states for each example.
             var_prior - scale factor for the prior spherical covariance.
-            X_test    - test examples for which we need to make predictions
+            X_test    - test examples for which we need to make predictions.
             kernel    - the kernel function.
     Output: mu_test   - I_test * 1 vector containing the means of the distribution 
                         for the test examples.
@@ -143,3 +143,64 @@ def _fit_gpr_cost(var, K, w, var_prior):
     f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
     f = -np.log(f)
     return f
+
+def fit_sparse_linear(X, w, nu, X_test):
+    """Sparse linear regression.
+
+    Input:  X        - (D + 1) * I training data matrix, where D is the dimensionality
+                       and I is the number of training examples.
+            nu       - degrees of freedom, typically nu < 0.001.
+            w        - I * 1 vector containing world states for each example.
+            X_test   - test examples for which we need to make predictions.
+    Output: mu_test  - I_test * 1 vector containing the means of the distribution 
+                        for the test examples.
+            var_test - I_test * 1 vector containing the variance of the distribution 
+                        for the test examples.
+    """
+    D = X.shape[0] - 1
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+
+    # Initialize H
+    H = np.ones(D + 1)
+    H_old = np.zeros(D + 1)
+
+    # Precompute, avoiding computing these in each iteration
+    X_w = X @ w
+    X_t = X.transpose()
+    X_Xt = X @ X_t
+    mu_world = np.sum(w) / I
+    var_world = np.sum((w - mu_world) ** 2) / I
+
+    iterations_count = 0
+    precision = 0.0001
+    while np.sum(np.fabs(H - H_old) > precision) != 0:
+        iterations_count += 1
+        H_old = H
+        
+        # Compute the variance, using the range [0, variance of world values]
+        var = optimize.fminbound(
+            _fit_slr_cost, 0, var_world, 
+            (X, w.reshape((1, I)), H)
+        )
+
+        # Update sig and mu
+        sig = np.linalg.pinv(X_Xt / var + np.diag(H))
+        mu = sig @ X_w / var
+
+        # Update H
+        H = 1 - H * np.diag(sig) + nu
+        H = H / (mu.reshape(mu.size) ** 2 + nu)
+        H[0] = 1   # make suer the first dimension stays constant
+
+        
+
+
+def _fit_slr_cost(var, X, w, H):
+    I = X.shape[1]
+    H_inv = np.diag(1 / H)
+    covariance = X.transpose() @ H_inv @ X + var * np.eye(I)
+    f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
+    f = -np.log(f)
+    return f
+
