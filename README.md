@@ -18,6 +18,7 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 
 ### Module `regression`
 - Function `fit_linear`: ML fitting of linear regression model.
+- Function `fit_by_linear`: Fitting of Bayesian linear regression.
 
 ### Module `classification`
 - Function `basic_generative` Basic classification based on multivariate measurement vector.

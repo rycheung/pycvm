@@ -418,15 +418,6 @@ def em_factor_analyzer(x, K, iterations):
             sig += sig1 - sig2
         sig = sig / I
 
-        # sig_diag = np.zeros((D, 1))
-        # for i in range(I):
-        #     xmm = x_minus_mu[i, :].reshape((D, 1))
-        #     sig_diag1 = xmm * xmm
-        #     sig_diag2 = (phi @ E_hi[:, i].reshape((K, 1))) * xmm
-        #     sig_diag += sig_diag1 - sig_diag2
-        # sig = sig_diag / I
-        # sig = sig.reshape(D)
-
         iterations_count += 1
 
     return (mu, phi, sig)
