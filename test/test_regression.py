@@ -19,7 +19,8 @@ def gaussian(x, mu, sig):
 
 argv = sys.argv
 if len(argv) != 2:
-    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process")
+    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
+          "|fit_sparse_linear")
     sys.exit(-1)
 
 if argv[1] == 'fit_linear':
@@ -181,5 +182,78 @@ elif argv[1] == "fit_gaussian_process":
 
     plt.show()
 
+elif argv[1] == 'fit_sparse_linear':
+    granularity = 100
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+    x = X.reshape((X.size, 1))
+    y = Y.reshape((Y.size, 1))
+
+    # Generate data
+    xy_matrix = np.append(
+        np.append(np.ones((X.size, 1)), x, axis=1),
+        y, axis=1
+    )
+    phi = np.array([[0], [0.8], [5]])  # plane equation cofficients
+    Z = xy_matrix @ phi
+
+    # Offset the points a bit from the plane
+    offset = 0.8 * np.random.standard_normal(Z.size)
+    X_points = x + offset
+    Y_points = y + offset
+    Z_points = Z + offset
+
+    # Remove points near the borders
+    selector_1 = np.logical_and(X_points < 4.5, X_points > -4.5)
+    selector_2 = np.logical_and(Y_points < 4.5, Y_points > -4.5)
+    selector = np.logical_and(selector_1, selector_2)
+    X_points = X_points[selector]
+    Y_points = Y_points[selector]
+    Z_points = Z_points[selector]
+
+    # Decrease the number of points
+    selector = np.random.permutation(X_points.size)
+    selector = selector[0:30]
+    X_points = X_points[selector]
+    Y_points = Y_points[selector]
+    Z_points = Z_points[selector]
+
+    # Prepare the training data
+    I = X_points.size
+    X_train = np.append(np.ones((1, I)), [X_points], axis=0)
+    X_train = np.append(X_train, [Y_points], axis=0)
+    w = Z_points.reshape((Z_points.size, 1))
+    X_test = np.append(
+        np.ones((1, granularity * granularity)),
+        x.transpose(), axis=0
+    )
+    X_test = np.append(X_test, y.transpose(), axis=0)
+
+    # Fit Bayesian linear regression model
+    var_prior = 6
+    mu_test, var_test, var, A_inv = regression.fit_by_linear(
+        X_train, w, var_prior, X_test
+    )
+    ZZ = mu_test.reshape((granularity, granularity))
+    plt.figure("Sparse linear regression")
+    plt.subplot(1, 2, 1)
+    plt.pcolor(X, Y, ZZ)
+    plt.scatter(X_points, Y_points, 40, Z_points, edgecolors="w")
+
+    # Fit sparse linear regression model
+    nu = 0.0005
+    mu_test, var_test = regression.fit_sparse_linear(
+        X_train, w, nu, X_test
+    )
+    ZZ = mu_test.reshape((granularity, granularity))
+    plt.subplot(1, 2, 2)
+    plt.pcolor(X, Y, ZZ)
+    plt.scatter(X_points, Y_points, 40, Z_points, edgecolors="w")
+
+    plt.show()
+
 else:
-    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process")
+    print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
+          "|fit_sparse_linear")

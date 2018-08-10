@@ -144,6 +144,7 @@ def _fit_gpr_cost(var, K, w, var_prior):
     f = -np.log(f)
     return f
 
+
 def fit_sparse_linear(X, w, nu, X_test):
     """Sparse linear regression.
 
@@ -172,17 +173,23 @@ def fit_sparse_linear(X, w, nu, X_test):
     mu_world = np.sum(w) / I
     var_world = np.sum((w - mu_world) ** 2) / I
 
+    # Init var
+    var = optimize.fminbound(
+        _fit_slr_cost, 0, var_world,
+        (X, w.reshape((1, I)), H)
+    )
+
     iterations_count = 0
     precision = 0.0001
     while np.sum(np.fabs(H - H_old) > precision) != 0:
         iterations_count += 1
         H_old = H
-        
+
         # Compute the variance, using the range [0, variance of world values]
-        var = optimize.fminbound(
-            _fit_slr_cost, 0, var_world, 
-            (X, w.reshape((1, I)), H)
-        )
+        # var = optimize.fminbound(
+        #     _fit_slr_cost, 0, var_world,
+        #     (X, w.reshape((1, I)), H)
+        # )
 
         # Update sig and mu
         sig = np.linalg.pinv(X_Xt / var + np.diag(H))
@@ -193,7 +200,34 @@ def fit_sparse_linear(X, w, nu, X_test):
         H = H / (mu.reshape(mu.size) ** 2 + nu)
         H[0] = 1   # make suer the first dimension stays constant
 
-        
+        # Update var
+        temp = w - X.transpose() @ mu
+        var = temp.transpose() @ temp / (D - np.sum(1 - H_old * np.diag(sig)))
+        var = np.sqrt(var[0, 0] ** 2)
+
+    # Prune step
+    selector = H < 1
+    X = X[selector]
+    X_test = X_test[selector]
+    H = H[selector]
+
+    # Compute A_inv
+    H_inv = np.diag(1 / H)
+    H_inv_X = H_inv @ X
+    temp = np.linalg.pinv(X.transpose() @ H_inv_X + var * np.eye(I))
+    A_inv = H_inv - H_inv_X @ temp @ X.transpose() @ H_inv
+
+    # Compute the mean for each test example
+    temp2 = X_test.transpose() @ A_inv
+    mu_test = temp2 @ X @ w / var
+
+    # Compute the variance for each test example
+    var_test = np.zeros((I_test, 1))
+    for i in range(I_test):
+        var_test[i, 0] = temp2[i, :].reshape(1, temp2.shape[1]) @ \
+            X_test[:, i].reshape((X_test.shape[0], 1)) + var
+
+    return (mu_test, var_test)
 
 
 def _fit_slr_cost(var, X, w, H):
@@ -203,4 +237,3 @@ def _fit_slr_cost(var, X, w, H):
     f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
     f = -np.log(f)
     return f
-
