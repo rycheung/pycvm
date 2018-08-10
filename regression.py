@@ -237,3 +237,57 @@ def _fit_slr_cost(var, X, w, H):
     f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
     f = -np.log(f)
     return f
+
+
+def fit_dual_gaussian_process(X, w, var_prior, X_test, kernel):
+    """Dual Gaussian process regression.
+
+    Input:  X         - (D + 1) * I training data matrix, where D is the dimensionality
+                        and I is the number of training examples.
+            w         - I * 1 vector containing world states for each example.
+            var_prior - scale factor for the prior spherical covariance.
+            X_test    - test examples for which we need to make predictions.
+            kernel    - the kernel function.
+    Output: mu_test   - I_test * 1 vector containing the means of the distribution 
+                        for the test examples.
+            var_test  - I_test * 1 vector containing the variance of the distribution 
+                        for the test examples.
+    """
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    K_test = np.zeros((I_test, I))
+    for i in range(I_test):
+        for j in range(I):
+            K_test[i, j] = kernel(X_test[:, i], X[:, j])
+
+    # Compute the variance, using the range [0, variance of world values]
+    mu_world = np.sum(w) / I
+    var_world = np.sum((w - mu_world) ** 2) / I
+    var = optimize.fminbound(
+        _fit_dgpr_cost, 0, var_world,
+        (K, w.reshape((1, I)), var_prior)
+    )
+
+    A_inv = np.linalg.pinv(K @ K / var + np.eye(I) / var_prior)
+    temp = K_test @ A_inv
+    mu_test = temp @ K @ w / var
+    var_test = np.zeros((I_test, 1))
+    for i in range(I_test):
+        var_test[i, 0] = temp[i].reshape((1, I)) @ \
+            K_test[i].reshape((I, 1)) + var
+
+    return (mu_test, var_test)
+
+
+def _fit_dgpr_cost(var, K, w, var_prior):
+    I = K.shape[0]
+    covariance = var_prior * K @ K + var * np.eye(I)
+    f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
+    f = -np.log(f)
+    return f

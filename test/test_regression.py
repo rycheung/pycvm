@@ -20,7 +20,7 @@ def gaussian(x, mu, sig):
 argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
-          "|fit_sparse_linear")
+          "|fit_sparse_linear|fit_dual_gaussian_process")
     sys.exit(-1)
 
 if argv[1] == 'fit_linear':
@@ -254,6 +254,30 @@ elif argv[1] == 'fit_sparse_linear':
 
     plt.show()
 
+elif argv[1] == 'fit_dual_gaussian_process':
+    I = 70
+    D = 100
+    I_test = 10
+
+    X_train = np.random.standard_normal((D, I))
+    X_train = np.append(np.ones((1, I)), X_train, axis=0)
+
+    # Evaluate a plane equation in D-dimensional space on the training data points.
+    phi = np.ones((D + 1, 1))  # plane equation coefficients
+    w = X_train.transpose() @ phi
+
+    X_test = np.random.standard_normal((D, I_test))
+    X_test = np.append(np.ones((1, I_test)), X_test, axis=0)
+
+    var_prior = 6
+    mu_test, var_test = regression.fit_dual_gaussian_process(
+        X_train, w, var_prior, X_test, kernel.linear
+    )
+
+    original_model_predictions = X_test.transpose() @ phi
+    learned_model_predictions = mu_test
+    print(np.append(original_model_predictions, learned_model_predictions, axis=1))
+
 else:
     print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
-          "|fit_sparse_linear")
+          "|fit_sparse_linear|fit_dual_gaussian_process")
