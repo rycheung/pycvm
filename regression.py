@@ -174,10 +174,10 @@ def fit_sparse_linear(X, w, nu, X_test):
     var_world = np.sum((w - mu_world) ** 2) / I
 
     # Init var
-    var = optimize.fminbound(
-        _fit_slr_cost, 0, var_world,
-        (X, w.reshape((1, I)), H)
-    )
+    # var = optimize.fminbound(
+    #     _fit_slr_cost, 0, var_world,
+    #     (X, w.reshape((1, I)), H)
+    # )
 
     iterations_count = 0
     precision = 0.0001
@@ -186,10 +186,10 @@ def fit_sparse_linear(X, w, nu, X_test):
         H_old = H
 
         # Compute the variance, using the range [0, variance of world values]
-        # var = optimize.fminbound(
-        #     _fit_slr_cost, 0, var_world,
-        #     (X, w.reshape((1, I)), H)
-        # )
+        var = optimize.fminbound(
+            _fit_slr_cost, 0, var_world,
+            (X, w.reshape((1, I)), H)
+        )
 
         # Update sig and mu
         sig = np.linalg.pinv(X_Xt / var + np.diag(H))
@@ -198,12 +198,12 @@ def fit_sparse_linear(X, w, nu, X_test):
         # Update H
         H = 1 - H * np.diag(sig) + nu
         H = H / (mu.reshape(mu.size) ** 2 + nu)
-        H[0] = 1   # make suer the first dimension stays constant
+        # H[0] = 1   # make suer the first dimension stays constant
 
         # Update var
-        temp = w - X.transpose() @ mu
-        var = temp.transpose() @ temp / (D - np.sum(1 - H_old * np.diag(sig)))
-        var = np.sqrt(var[0, 0] ** 2)
+        # temp = w - X.transpose() @ mu
+        # var = temp.transpose() @ temp / (D - np.sum(1 - H_old * np.diag(sig)))
+        # var = np.sqrt(var[0, 0] ** 2)
 
     # Prune step
     selector = H < 1
@@ -288,6 +288,102 @@ def fit_dual_gaussian_process(X, w, var_prior, X_test, kernel):
 def _fit_dgpr_cost(var, K, w, var_prior):
     I = K.shape[0]
     covariance = var_prior * K @ K + var * np.eye(I)
+    f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
+    f = -np.log(f)
+    return f
+
+
+def fit_relevance_vector(X, w, nu, X_test, kernel):
+    """Relevance vector regression.
+
+    Input:  X               - (D + 1) * I training data matrix, where D is the dimensionality
+                              and I is the number of training examples.
+            w               - I * 1 vector containing world states for each example.
+            nu              - degrees of freedom, typically nu < 0.001
+            X_test          - test examples for which we need to make predictions.
+            kernel          - the kernel function.
+    Output: mu_test         - I_test * 1 vector containing the means of the distribution 
+                              for the test examples.
+            var_test        - I_test * 1 vector containing the variance of the distribution 
+                              for the test examples.
+            relevant_points - I * 1 boolean vector where a True at position i indicates 
+                              that point X[:, i] remained after the elimination phase 
+                              (i.e. it is relevant)
+    """
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    # Initilization and pre-compute
+    H = np.ones(I)
+    H_old = np.zeros(I)
+    K_K = K @ K
+    K_w = K @ w
+    mu_world = np.sum(w) / I
+    var_world = np.sum((w - mu_world) ** 2) / I
+
+    iterations_count = 0
+    precision = 0.001
+    while np.sum(np.fabs(H - H_old) > precision) != 0:
+        iterations_count += 1
+        H_old = H
+
+        # Compute the variance, using the range [0, variance of world values]
+        var = optimize.fminbound(
+            _fit_rvr_cost, 0, var_world,
+            (K, w.reshape((1, I)), H)
+        )
+
+        # Update sig and mu
+        sig = np.linalg.pinv(K_K / var + np.diag(H))
+        mu = sig @ K_w / var
+
+        # Update H
+        H = 1 - H * np.diag(sig) + nu
+        H = H / (mu.reshape(I) ** 2 + nu)
+
+    # Prune step
+    selector = H < 1
+    X = X[:, selector]
+    w = w[selector]
+    H = H[selector]
+    relevant_points = selector.reshape((I, 1))
+
+    # Recompute K[X, X]
+    I = X.shape[1]
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    # Compute K[X_test, X]
+    K_test = np.zeros((I_test, I))
+    for i in range(I_test):
+        for j in range(I):
+            K_test[i, j] = kernel(X_test[:, i], X[:, j])
+
+    # Compute A_inv
+    A_inv = np.linalg.pinv(K @ K / var + np.diag(H))
+
+    # Compute the mean and variance for each test_example
+    temp = K_test @ A_inv
+    mu_test = temp @ K @ w / var
+    var_test = np.zeros((I_test, 1))
+    for i in range(I_test):
+        var_test[i, 0] = temp[i, :].reshape((1, I)) @ \
+            A_inv @ K_test[i, :].reshape((I, 1)) + var
+
+    return (mu_test, var_test, relevant_points)
+
+
+def _fit_rvr_cost(var, K, w, H):
+    I = w.size
+    H_inv = np.diag(1 / H)
+    covariance = K @ H_inv @ K + var * np.eye(I)
     f = fitting.gaussian_pdf(w, np.zeros(I), covariance)[0, 0]
     f = -np.log(f)
     return f

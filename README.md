@@ -26,6 +26,7 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_gaussian_process`: Fitting of Gaussian process regression.
 - Function `fit_sparse_linear`: Fitting of Sparse linear regression.
 - Function `fit_dual_gaussian_process` : Fitting of Dual Gaussian process regression.
+- Function `fit_relevance_vector`: Fitting of relevance vector regression.
 
 ### Module `classification`
 - Function `basic_generative` Basic classification based on multivariate measurement vector.

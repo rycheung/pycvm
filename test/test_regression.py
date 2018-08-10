@@ -20,7 +20,7 @@ def gaussian(x, mu, sig):
 argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
-          "|fit_sparse_linear|fit_dual_gaussian_process")
+          "|fit_sparse_linear|fit_dual_gaussian_process|fit_relevance_vector")
     sys.exit(-1)
 
 if argv[1] == 'fit_linear':
@@ -278,6 +278,74 @@ elif argv[1] == 'fit_dual_gaussian_process':
     learned_model_predictions = mu_test
     print(np.append(original_model_predictions, learned_model_predictions, axis=1))
 
+elif argv[1] == 'fit_relevance_vector':
+    granularity = 1000
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+
+    # Generate 2D data from normal distribution
+    mu = np.array([[-3, 2], [0, -3], [4, 3]])
+    sig = np.array([[0.5, 0], [0, 0.5]])
+    X_data = np.append(
+        np.append(
+            np.random.multivariate_normal(mu[0], sig, 10),
+            np.random.multivariate_normal(mu[1], sig, 10),
+            axis=0
+        ),
+        np.random.multivariate_normal(mu[2], sig, 10),
+        axis=0
+    )
+
+    # Prepare training input
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data[:, 0].reshape((1, X_data.shape[0])),
+        axis=0
+    )
+    w = X_data[:, 1].reshape((X_data.shape[0], 1))
+    nu = 0.0005
+    X_test = np.append(
+        np.ones((1, granularity)),
+        domain.reshape((1, granularity)),
+        axis=0
+    )
+
+    # Fit a relevance vector regression model
+    mu_test, var_test, relevant_points = regression.fit_relevance_vector(
+        X_train, w, nu, X_test,
+        lambda x_i, x_j: kernel.gaussian(x_i, x_j, 2)
+    )
+
+    plt.figure("Relevance vector regression")
+    Z = np.zeros((granularity, granularity))
+    for j in range(granularity):
+        mu = mu_test[j, 0]
+        var = var_test[j, 0]
+        for i in range(granularity):
+            ww = domain[i]
+            Z[i, j] = gaussian(ww, mu, var)
+    plt.pcolor(X, Y, Z)
+
+    # Plot the non-relevant data points
+    relevant_points = relevant_points.reshape(relevant_points.size)
+    plt.scatter(
+        X_data[np.logical_not(relevant_points), 0],
+        X_data[np.logical_not(relevant_points), 1],
+        50, edgecolors="w"
+    )
+
+    # Plot the relevant data points
+    plt.scatter(
+        X_data[relevant_points, 0],
+        X_data[relevant_points, 1],
+        200, edgecolors="w"
+    )
+
+    plt.axis([-5, 5, -5, 5])
+    plt.show()
+
 else:
     print("Usage: python test_regression.py fit_linear|fit_by_linear|fit_gaussian_process"
-          "|fit_sparse_linear|fit_dual_gaussian_process")
+          "|fit_sparse_linear|fit_dual_gaussian_process|fit_relevance_vector")
