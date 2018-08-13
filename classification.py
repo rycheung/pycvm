@@ -92,7 +92,7 @@ def fit_logistic(X, w, var_prior, X_test, initial_phi):
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
             phi         - D + 1 row vector containing the coefficients for the
-                          linear activation function. 
+                          linear activation function.
     """
     # Find the MAP estimate of the parameters phi
     phi = optimize.minimize(
@@ -147,3 +147,47 @@ def _fit_logr_hess(phi, X, w, var_prior):
         x_i = X[:, i].reshape((D + 1, 1))
         H += y * (1 - y) * (x_i @ x_i.transpose())
     return H
+
+
+def fit_by_logistic(X, w, var_prior, X_test, initial_phi):
+    """Bayesian logistic regression.
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            var_prior   - scale factor for the prior spherical covariance.
+            X_test      - test examples for which we need to make predictions.
+            initial_phi - (D + 1) * 1 vector that represents the initial solution.
+    Output: predictions - 1 * I_test row vector containing the predicted class values for
+                          the input data in X_test.
+            phi         - D + 1 row vector containing the coefficients for the
+                          linear activation function.
+    """
+    I_test = X_test.shape[1]
+    D = X.shape[0] - 1
+
+    # Find the MAP estimate of the parameters phi
+    phi = optimize.minimize(
+        _fit_logr_cost,
+        initial_phi.reshape(initial_phi.size),
+        args=(X, w, var_prior),
+        method="Newton-CG",
+        jac=_fit_logr_jac,
+        hess=_fit_logr_hess
+    ).x
+
+    # Compute the Hessian at phi
+    H = _fit_logr_hess(phi, X, w, var_prior)
+
+    mu = phi
+    var = -np.linalg.pinv(H)
+
+    mu_a = mu.reshape((1, D + 1)) @ X_test
+    var_a_temp = X_test.transpose() @ var
+    var_a = np.zeros((1, I_test))
+    for i in range(I_test):
+        var_a[0, i] = var_a_temp[i, :] @ X_test[:, i]
+
+    p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi * var_a / 8))
+    predictions = p_lambda
+    return (predictions, phi)
