@@ -177,7 +177,7 @@ def fit_by_logistic(X, w, var_prior, X_test, initial_phi):
     ).x
 
     # Compute the Hessian at phi
-    H = _fit_logr_hess(phi, X, w, var_prior)
+    H = -_fit_logr_hess(phi, X, w, var_prior)
 
     mu = phi
     var = -np.linalg.pinv(H)
@@ -189,5 +189,6 @@ def fit_by_logistic(X, w, var_prior, X_test, initial_phi):
         var_a[0, i] = var_a_temp[i, :] @ X_test[:, i]
 
     p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi * var_a / 8))
-    predictions = p_lambda
+    predictions = p_lambda.reshape(I_test)
     return (predictions, phi)
+
