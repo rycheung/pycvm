@@ -29,4 +29,5 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_relevance_vector`: Fitting of relevance vector regression.
 
 ### Module `classification`
-- Function `basic_generative` Basic classification based on multivariate measurement vector.
+- Function `basic_generative`: Basic classification based on multivariate measurement vector.
+- Function `fit_logistic`: Fitting of MAP logistic regression.
