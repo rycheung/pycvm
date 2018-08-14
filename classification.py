@@ -192,3 +192,73 @@ def fit_by_logistic(X, w, var_prior, X_test, initial_phi):
     predictions = p_lambda.reshape(I_test)
     return (predictions, phi)
 
+
+def fit_dual_logistic(X, w, var_prior, X_test, initial_psi):
+    """MAP dual logistic regression.
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            var_prior   - scale factor for the prior spherical covariance.
+            X_test      - test examples for which we need to make predictions.
+            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+    Output: predictions - 1 * I_test row vector containing the predicted class values for
+                          the input data in X_test.
+            psi         - D + 1 row vector containing the coefficients for the
+                          activation function.
+    """
+    I = X.shape[1]
+    psi = optimize.minimize(
+        _fit_dlogr_cost,
+        initial_psi.reshape(initial_psi.size),
+        args=(X, w, var_prior),
+        method="Newton-CG",
+        jac=_fit_dlogr_jac,
+        hess=_fit_dlogr_hess
+    ).x
+
+    predictions = sigmoid((X @ psi.reshape((I, 1))).transpose() @ X_test)
+    predictions = predictions.reshape(predictions.size)
+    return (predictions, psi)
+
+
+def _fit_dlogr_cost(psi, X, w, var_prior):
+    I = X.shape[1]
+    L = I * (-np.log(fitting.gaussian_pdf(
+        psi.reshape((1, psi.size)),
+        np.zeros(I),
+        var_prior * np.eye(I)
+    )[0, 0]))
+
+    predictions = sigmoid((X @ psi.reshape((I, 1))).transpose() @ X)
+    for i in range(I):
+        y = predictions[0, i]
+        if w[i, 0] == 1:
+            L -= np.log(y)
+        else:
+            L -= np.log(1 - y)
+    return L
+
+
+def _fit_dlogr_jac(psi, X, w, var_prior):
+    I = X.shape[1]
+    D = X.shape[0] - 1
+    g = I * psi / var_prior
+    g = g.reshape((I, 1))
+    predictions = sigmoid((X @ psi.reshape((I, 1))).transpose() @ X)
+    for i in range(I):
+        y = predictions[0, i]
+        g += (y - w[i, 0]) * (X.transpose() @ X[:, i].reshape((D + 1, 1)))
+    return g.reshape(I)
+
+
+def _fit_dlogr_hess(psi, X, w, var_prior):
+    I = X.shape[1]
+    D = X.shape[0] - 1
+    H = I * (1 / var_prior) * np.ones((I, I))
+    predictions = sigmoid((X @ psi.reshape((I, 1))).transpose() @ X)
+    for i in range(I):
+        y = predictions[0, i]
+        temp = X.transpose() @ X[:, i].reshape((D + 1, 1))
+        H += y * (1 - y) * (temp @ temp.transpose())
+    return H
