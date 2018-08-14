@@ -451,8 +451,7 @@ def fit_relevance_vector(X, w, nu, X_test, initial_psi, kernel):
         H = H / (mu ** 2 + nu)
 
     # Prune step
-    print(H)
-    threshold = 1000
+    threshold = 2000
     selector = H < threshold
     X = X[:, selector]
     mu = mu[selector]
