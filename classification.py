@@ -262,3 +262,45 @@ def _fit_dlogr_hess(psi, X, w, var_prior):
         temp = X.transpose() @ X[:, i].reshape((D + 1, 1))
         H += y * (1 - y) * (temp @ temp.transpose())
     return H
+
+
+def fit_dual_by_logistic(X, w, var_prior, X_test, initial_psi):
+    """Dual Bayesian logistic regression.
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            var_prior   - scale factor for the prior spherical covariance.
+            X_test      - test examples for which we need to make predictions.
+            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+    Output: predictions - 1 * I_test row vector containing the predicted class values for
+                          the input data in X_test.
+            psi         - D + 1 row vector containing the coefficients for the
+                          activation function.
+    """
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+    psi = optimize.minimize(
+        _fit_dlogr_cost,
+        initial_psi.reshape(initial_psi.size),
+        args=(X, w, var_prior),
+        method="Newton-CG",
+        jac=_fit_dlogr_jac,
+        hess=_fit_dlogr_hess
+    ).x
+
+    H = -_fit_dlogr_hess(psi, X, w, var_prior)
+
+    mu = psi
+    var = -np.linalg.pinv(H)
+
+    mu_a_temp = X.transpose() @ X_test
+    mu_a = mu.reshape((1, I)) @ mu_a_temp
+    var_a_temp = X @ var @ mu_a_temp
+    var_a = np.zeros((1, I_test))
+    for i in range(I_test):
+        var_a[0, i] = X_test[:, i] @ var_a_temp[:, i]
+
+    p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi * var_a / 8))
+    predictions = p_lambda.reshape(I_test)
+    return (predictions, psi)

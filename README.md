@@ -33,3 +33,4 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_logistic`: Fitting of MAP logistic regression.
 - Function `fit_by_logistic`: Fitting of Bayesian logistic regression.
 - Function `fit_dual_logistic`: Fitting of MAP dual logistic regression.
+- Function `fit_dual_by_logistic`: Fitting of dual Bayesian logistic regression.
