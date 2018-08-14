@@ -140,7 +140,7 @@ def _fit_logr_jac(phi, X, w, var_prior):
 def _fit_logr_hess(phi, X, w, var_prior):
     I = X.shape[1]
     D = X.shape[0] - 1
-    H = I * (1 / var_prior) * np.ones((D + 1, D + 1))
+    H = I * (1 / var_prior) * np.eye(D + 1)
     predictions = sigmoid(phi.reshape((1, D + 1)) @ X)
     for i in range(I):
         y = predictions[0, i]
@@ -255,7 +255,7 @@ def _fit_dlogr_jac(psi, X, w, var_prior):
 def _fit_dlogr_hess(psi, X, w, var_prior):
     I = X.shape[1]
     D = X.shape[0] - 1
-    H = I * (1 / var_prior) * np.ones((I, I))
+    H = I * (1 / var_prior) * np.eye(I)
     predictions = sigmoid((X @ psi.reshape((I, 1))).transpose() @ X)
     for i in range(I):
         y = predictions[0, i]
@@ -304,3 +304,94 @@ def fit_dual_by_logistic(X, w, var_prior, X_test, initial_psi):
     p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi * var_a / 8))
     predictions = p_lambda.reshape(I_test)
     return (predictions, psi)
+
+
+def fit_gaussian_process(X, w, var_prior, X_test, initial_psi, kernel):
+    """Gaussian process classification (or kernel logistic regression).
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            var_prior   - scale factor for the prior spherical covariance.
+            X_test      - test examples for which we need to make predictions.
+            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+            kernel      - the kernel function.
+    Output: predictions - 1 * I_test row vector containing the predicted class values for
+                          the input data in X_test.
+            psi         - D + 1 row vector containing the coefficients for the
+                          activation function.
+    """
+    I = X.shape[1]
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    I_test = X_test.shape[1]
+    K_test = np.zeros((I, I_test))
+    for i in range(I):
+        for j in range(I_test):
+            K_test[i, j] = kernel(X[:, i], X_test[:, j])
+
+    psi = optimize.minimize(
+        _fit_klogr_cost,
+        initial_psi.reshape(initial_psi.size),
+        args=(X, w, var_prior, K),
+        method="Newton-CG",
+        jac=_fit_klogr_jac,
+        hess=_fit_klogr_hess
+    ).x
+
+    H = -_fit_klogr_hess(psi, X, w, var_prior, K)
+
+    mu = psi
+    var = -np.linalg.pinv(H)
+
+    mu_a = mu.reshape((1, I)) @ K_test
+    var_a_temp = X @ var @ K_test
+    var_a = np.zeros((1, I_test))
+    for i in range(I_test):
+        var_a[0, i] = X_test[:, i] @ var_a_temp[:, i]
+
+    p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi / 8 * var_a))
+    predictions = p_lambda.reshape(I_test)
+    return (predictions, psi)
+
+
+def _fit_klogr_cost(psi, X, w, var_prior, K):
+    I = X.shape[1]
+    L = I * (-np.log(fitting.gaussian_pdf(
+        psi.reshape((1, psi.size)),
+        np.zeros(I),
+        var_prior * np.eye(I)
+    )[0, 0]))
+
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        if w[i, 0] == 1:
+            L -= np.log(y)
+        else:
+            L -= np.log(1 - y)
+    return L
+
+
+def _fit_klogr_jac(psi, X, w, var_prior, K):
+    I = X.shape[1]
+    g = I * psi / var_prior
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        g += (y - w[i, 0]) * K[:, i]
+    return g
+
+
+def _fit_klogr_hess(psi, X, w, var_prior, K):
+    I = X.shape[1]
+    H = I * (1 / var_prior) * np.eye(I)
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        temp = K[:, i].reshape((I, 1))
+        H += y * (1 - y) * (temp @ temp.transpose())
+    return H
