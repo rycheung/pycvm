@@ -201,7 +201,7 @@ def fit_dual_logistic(X, w, var_prior, X_test, initial_psi):
             w           - I * 1 vector containing world states for each example.
             var_prior   - scale factor for the prior spherical covariance.
             X_test      - test examples for which we need to make predictions.
-            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+            initial_psi - I * 1 vector that represents the initial solution.
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
             psi         - D + 1 row vector containing the coefficients for the
@@ -272,7 +272,7 @@ def fit_dual_by_logistic(X, w, var_prior, X_test, initial_psi):
             w           - I * 1 vector containing world states for each example.
             var_prior   - scale factor for the prior spherical covariance.
             X_test      - test examples for which we need to make predictions.
-            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+            initial_psi - I * 1 vector that represents the initial solution.
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
             psi         - D + 1 row vector containing the coefficients for the
@@ -314,7 +314,7 @@ def fit_gaussian_process(X, w, var_prior, X_test, initial_psi, kernel):
             w           - I * 1 vector containing world states for each example.
             var_prior   - scale factor for the prior spherical covariance.
             X_test      - test examples for which we need to make predictions.
-            initial_psi - (D + 1) * 1 vector that represents the initial solution.
+            initial_psi - I * 1 vector that represents the initial solution.
             kernel      - the kernel function.
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
@@ -389,6 +389,131 @@ def _fit_klogr_jac(psi, X, w, var_prior, K):
 def _fit_klogr_hess(psi, X, w, var_prior, K):
     I = X.shape[1]
     H = I * (1 / var_prior) * np.eye(I)
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        temp = K[:, i].reshape((I, 1))
+        H += y * (1 - y) * (temp @ temp.transpose())
+    return H
+
+
+def fit_relevance_vector(X, w, nu, X_test, initial_psi, kernel):
+    """Relevance vector classification.
+
+    Input:  X               - (D + 1) * I training data matrix, where D is the dimensionality
+                              and I is the number of training examples.
+            w               - I * 1 vector containing world states for each example.
+            nu              - degrees of freedom.
+            X_test          - test examples for which we need to make predictions.
+            initial_psi     - I * 1 vector that represents the initial solution.
+            kernel          - the kernel function.
+    Output: predictions     - 1 * I_test row vector containing the predicted class values for
+                              the input data in X_test.
+            relevant_points - I * 1 boolean vector where a True at position i indicates that point
+                              X[:, i] remained after the elimination phase, i.e. it is relevant.
+    """
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    H = np.ones(I)
+    H_old = np.zeros(I)
+    iterations_count = 0
+    precision = 0.001
+    mu = 0
+    sig = 0
+    while np.sum(np.fabs(H - H_old) > precision) != 0:
+        # while iterations_count < 10:
+        iterations_count += 1
+        H_old = H
+
+        psi = optimize.minimize(
+            _fit_rvc_cost,
+            initial_psi.reshape(initial_psi.size),
+            args=(w, H, K),
+            method="Newton-CG",
+            jac=_fit_rvc_jac,
+            hess=_fit_rvc_hess
+        ).x
+
+        # Compute Hessian S at peak
+        S = -_fit_rvc_hess(psi, w, H, K)
+
+        # Set mean and variance of Laplace approximation
+        mu = psi
+        sig = -np.linalg.pinv(S)
+
+        # Update H
+        H = 1 - H * np.diag(sig) + nu
+        H = H / (mu ** 2 + nu)
+
+    # Prune step
+    print(H)
+    threshold = 1000
+    selector = H < threshold
+    X = X[:, selector]
+    mu = mu[selector]
+    sig = sig[selector, :][:, selector]
+    H = H[selector]
+    relevant_points = selector.reshape((I, 1))
+
+    I = X.shape[1]
+    K = np.zeros((I, I))
+    for i in range(I):
+        for j in range(I):
+            K[i, j] = kernel(X[:, i], X[:, j])
+
+    I_test = X_test.shape[1]
+    K_test = np.zeros((I, I_test))
+    for i in range(I):
+        for j in range(I_test):
+            K_test[i, j] = kernel(X[:, i], X_test[:, j])
+
+    mu_a = mu.reshape((1, I)) @ K_test
+    var_a_temp = sig @ K_test
+    var_a = np.zeros((1, I_test))
+    for i in range(I_test):
+        var_a[0, i] = K_test[:, i] @ var_a_temp[:, i]
+
+    p_lambda = sigmoid(mu_a / np.sqrt(1 + np.pi / 8 * var_a))
+    predictions = p_lambda.reshape(I_test)
+    return (predictions, relevant_points)
+
+
+def _fit_rvc_cost(psi, w, Hd, K):
+    I = K.shape[0]
+    L = I * (-np.log(fitting.gaussian_pdf(
+        psi.reshape((1, psi.size)),
+        np.zeros(I),
+        np.diag(1 / Hd)
+    )[0, 0]))
+
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        if w[i, 0] == 1:
+            L -= np.log(y)
+        else:
+            L -= np.log(1 - y)
+    return L
+
+
+def _fit_rvc_jac(psi, w, Hd, K):
+    I = K.shape[0]
+    g = I * Hd * psi
+    predictions = sigmoid(psi @ K)
+    for i in range(I):
+        y = predictions[i]
+        g += (y - w[i, 0]) * K[:, i]
+    return g
+
+
+def _fit_rvc_hess(psi, w, Hd, K):
+    I = K.shape[1]
+    H = I * np.diag(Hd)
     predictions = sigmoid(psi @ K)
     for i in range(I):
         y = predictions[i]

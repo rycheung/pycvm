@@ -14,7 +14,8 @@ import matplotlib.pyplot as plt
 argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
-          "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process")
+          "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
+          "|fit_relevance_vector")
     sys.exit(-1)
 
 if argv[1] == "fit_logistic":
@@ -503,6 +504,80 @@ elif argv[1] == "fit_gaussian_process":
 
     plt.show()
 
+elif argv[1] == "fit_relevance_vector":
+    granularity = 100
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+    x = X.reshape((1, X.size))
+    y = Y.reshape((1, Y.size))
+
+    mu = np.array([[-1, 2.5], [1, -2.5]])
+    sig = np.array([[0.5, 0], [0, 0.5]])
+    points_per_class = 20
+    X_data = np.append(
+        np.random.multivariate_normal(mu[0], sig, points_per_class),
+        np.random.multivariate_normal(mu[1], sig, points_per_class),
+        axis=0
+    )
+
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data.transpose(),
+        axis=0
+    )
+    w = np.append(
+        np.zeros((points_per_class, 1)),
+        np.ones((points_per_class, 1)),
+        axis=0
+    )
+    X_test = np.append(np.ones((1, granularity * granularity)), x, axis=0)
+    X_test = np.append(X_test, y, axis=0)
+
+    p_lambdas = [0.3, 1, 5, 15]
+    plt.figure("Relevance vector classification")
+    for index, p_lambda in enumerate(p_lambdas):
+        initial_psi = np.zeros((X_train.shape[1], 1))
+        nu = 0.0005
+        predictions, relevant_points = classification.fit_relevance_vector(
+            X_train, w, nu, X_test, initial_psi,
+            lambda x_i, x_j: kernel.gaussian(x_i, x_j, p_lambda)
+        )
+
+        plt.subplot(2, 2, index + 1)
+        Z = predictions.reshape(granularity, granularity)
+        plt.pcolor(X, Y, Z)
+
+        selector0 = relevant_points.reshape(relevant_points.size).copy()
+        selector1 = relevant_points.reshape(relevant_points.size).copy()
+
+        selector0[points_per_class:(2 * points_per_class)] = False
+        selector1[0:points_per_class] = False
+
+        selector0n = selector0.copy()
+        selector0n[0:points_per_class] = np.logical_not(
+            selector0n[0:points_per_class]
+        )
+
+        selector1n = selector1.copy()
+        selector1n[points_per_class:(2 * points_per_class)] = np.logical_not(
+            selector1n[points_per_class:(2 * points_per_class)]
+        )
+
+        plt.scatter(X_data[selector0, 0], X_data[selector0, 1],
+                    200, c="r", edgecolors="k")
+        plt.scatter(X_data[selector0n, 0], X_data[selector0n, 1],
+                    50, c="r", edgecolors="k")
+        plt.scatter(X_data[selector1, 0], X_data[selector1, 1],
+                    200, c="b", edgecolors="k")
+        plt.scatter(X_data[selector1n, 0], X_data[selector1n, 1],
+                    50, c="b", edgecolors="k")
+
+        plt.axis([a, b, a, b])
+    plt.show()
+
 else:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
-          "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process")
+          "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
+          "|fit_relevance_vector")
