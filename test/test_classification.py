@@ -15,7 +15,8 @@ argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost")
+          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost"
+          "|fit_multi_logistic")
     sys.exit(-1)
 
 if argv[1] == "fit_logistic":
@@ -730,7 +731,49 @@ elif argv[1] == "fit_logitboost":
         plt.axis([a, b, a, b])
     plt.show()
 
+elif argv[1] == "fit_multi_logistic":
+    plt.figure("Multi-class logistic classification")
+    I_0 = 10
+    mu_0 = -2
+    sig_0 = 1.5
+    class_0 = np.random.normal(mu_0, sig_0, (1, I_0))
+    plt.scatter(class_0, np.zeros((1, I_0)), 50, c="b")
+
+    I_1 = 10
+    mu_1 = 0
+    sig_1 = 1.5
+    class_1 = np.random.normal(mu_1, sig_1, (1, I_1))
+    plt.scatter(class_1, np.zeros((1, I_1)), 50, c="g")
+
+    I_2 = 10
+    mu_2 = 2
+    sig_2 = 1.5
+    class_2 = np.random.normal(mu_2, sig_2, (1, I_2))
+    plt.scatter(class_2, np.zeros((1, I_2)), 50, c="r")
+
+    X = np.append(class_0, class_1, axis=1)
+    X = np.append(X, class_2, axis=1)
+    X = np.append(np.ones((1, I_0 + I_1 + I_2)), X, axis=0)
+    w = np.append(np.zeros((I_0, 1)), np.ones((I_1, 1)), axis=0)
+    w = np.append(w, 2 * np.ones((I_2, 1)), axis=0)
+    X_test = np.arange(-5, 5, 0.1)
+    X_test = np.append(
+        np.ones((1, X_test.size)),
+        X_test.reshape(1, X_test.size),
+        axis=0
+    )
+
+    Predictions = classification.fit_multi_logistic(X, w, X_test, 3)
+
+    plt.plot(np.arange(-5, 5, 0.1), Predictions[0, :], 'b')
+    plt.plot(np.arange(-5, 5, 0.1), Predictions[1, :], 'g')
+    plt.plot(np.arange(-5, 5, 0.1), Predictions[2, :], 'r')
+
+    plt.axis([-5, 5, -0.1, 1.1])
+    plt.show()
+
 else:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost")
+          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost"
+          "|fit_multi_logistic")

@@ -38,3 +38,4 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_relevance_vector`: Fitting of relevance vector classification.
 - Function `fit_incremental_logistic`: Incremental fitting for logistic regression.
 - Function `fit_logitboost`: Fitting of logitboost model.
+- Function `fit_multi_logistic`: Fitting of multi-class logistic regression.
