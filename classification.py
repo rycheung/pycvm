@@ -519,3 +519,73 @@ def _fit_rvc_hess(psi, w, Hd, K):
         temp = K[:, i].reshape((I, 1))
         H += y * (1 - y) * (temp @ temp.transpose())
     return H
+
+
+def fit_incremental_logistic(X, w, X_test, K):
+    """Incremental fitting for logistic regression
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            X_test      - test examples for which we need to make predictions.
+            K           - the number of incremental stages
+    Output: predictions - 1 * I_test row vector containing the predicted class values for
+                          the input data in X_test.
+    """
+    I = X.shape[1]
+    D = X.shape[0] - 1
+    phi_0 = 0
+    phi = np.zeros((K, 1))
+    a = np.zeros(I)
+    xi = np.zeros((D + 1, K))
+
+    for k in range(K):
+        a = a - phi_0
+
+        initial_x = np.ones(2 + D + 1)
+        x = optimize.minimize(
+            _fit_inclr_cost,
+            initial_x,
+            args=(X, w, a),
+            method="TNC",
+            jac=_fit_inclr_jac,
+        ).x
+
+        phi_0 = x[0]
+        phi[k] = x[1]
+        xi[:, k] = x[2:]
+
+        f = np.arctan(xi[:, k] @ X)
+        a += phi_0 + phi[k] * f
+
+    temp = phi.reshape((phi.size, 1)) * np.arctan(xi.transpose() @ X_test)
+    act = phi_0 + np.sum(temp, axis=0)
+    predictions = sigmoid(act)
+
+    return predictions
+
+
+def _fit_inclr_cost(x, X, w, a):
+    I = X.shape[1]
+    f = 0
+    temp = x[2:].reshape((1, x.size - 2)) @ X
+    for i in range(I):
+        y = sigmoid(a[i] + x[0] + x[1] * np.arctan(temp[0, i]))
+        if w[i, 0] == 1:
+            f -= np.log(y)
+        else:
+            f -= np.log(1 - y)
+    return f
+
+
+def _fit_inclr_jac(x, X, w, a):
+    D = X.shape[0] - 1
+    g = np.zeros(2 + D + 1)
+    temp1 = x[2:].reshape((1, x.size - 2)) @ X
+    temp1 = temp1.reshape(temp1.size)
+    y = sigmoid(a + x[0] + x[1] * np.arctan(temp1))
+    temp2 = y - w.reshape(w.size)
+    g[0] = np.sum(temp2)
+    g[1] = np.sum(temp2 * np.arctan(temp1))
+    g[2:] = np.sum(temp2 * x[1] * (1 / (1 + temp1 ** 2)) * X, axis=1)
+    return g

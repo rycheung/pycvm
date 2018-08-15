@@ -15,7 +15,7 @@ argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector")
+          "|fit_relevance_vector|fit_incremental_logistic")
     sys.exit(-1)
 
 if argv[1] == "fit_logistic":
@@ -577,7 +577,90 @@ elif argv[1] == "fit_relevance_vector":
         plt.axis([a, b, a, b])
     plt.show()
 
+elif argv[1] == "fit_incremental_logistic":
+    plt.figure("1D incremental fitting of logistic classification")
+    I_0 = 20
+    mu_0 = -2
+    sig_0 = 1.5
+    class_0 = np.random.normal(mu_0, sig_0, (1, I_0))
+
+    I_1 = 20
+    mu_1 = 2
+    sig_1 = 1.5
+    class_1 = np.random.normal(mu_1, sig_1, (1, I_1))
+
+    X = np.append(class_0, class_1, axis=1)
+    X = np.append(np.ones((1, I_0 + I_1)), X, axis=0)
+    w = np.append(np.zeros((I_0, 1)), np.ones((I_1, 1)), axis=0)
+    var_prior = 6
+    X_test = np.arange(-5, 5, 0.1)
+    X_test = np.append(
+        np.ones((1, X_test.size)),
+        X_test.reshape(1, X_test.size),
+        axis=0
+    )
+
+    Ks = [1, 5, 10, 20]
+    for index, K in enumerate(Ks):
+        plt.subplot(2, 2, index + 1)
+        predictions = classification.fit_incremental_logistic(X, w, X_test, K)
+        plt.plot(np.arange(-5, 5, 0.1), predictions)
+        plt.scatter(class_0, np.zeros((1, I_0)), 50, c="r", edgecolors="k")
+        plt.scatter(class_1, np.zeros((1, I_1)), 50, c="g", edgecolors="k")
+        plt.axis([-5, 5, -0.1, 1.1])
+
+    plt.figure("2D incremental fitting of logistic classification")
+    granularity = 100
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+    x = X.reshape((1, X.size))
+    y = Y.reshape((1, Y.size))
+
+    mu = np.array([[-1, 1], [1, -1]])
+    sig = np.array([[2, 0], [0, 2]])
+    points_per_class = 20
+    X_data = np.append(
+        np.random.multivariate_normal(mu[0], sig, points_per_class),
+        np.random.multivariate_normal(mu[1], sig, points_per_class),
+        axis=0
+    )
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data.transpose(),
+        axis=0
+    )
+    w = np.append(
+        np.zeros((points_per_class, 1)),
+        np.ones((points_per_class, 1)),
+        axis=0
+    )
+    X_test = np.append(np.ones((1, granularity * granularity)), x, axis=0)
+    X_test = np.append(X_test, y, axis=0)
+
+    Ks = [1, 5, 10, 20]
+    for index, K in enumerate(Ks):
+        predictions = classification.fit_incremental_logistic(
+            X_train, w, X_test, K)
+
+        plt.subplot(2, 2, index + 1)
+        Z = predictions.reshape(granularity, granularity)
+        plt.pcolor(X, Y, Z)
+
+        selector = np.arange(points_per_class)
+        plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                    50, c="r", edgecolors="w")
+
+        selector = np.arange(points_per_class, 2 * points_per_class)
+        plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                    50, c="g", edgecolors="w")
+
+        plt.axis([a, b, a, b])
+
+    plt.show()
+
 else:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector")
+          "|fit_relevance_vector|fit_incremental_logistic")
