@@ -37,3 +37,4 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_gaussian_process`: Fitting of Gaussian process classification (or kernel logistic regression).
 - Function `fit_relevance_vector`: Fitting of relevance vector classification.
 - Function `fit_incremental_logistic`: Incremental fitting for logistic regression.
+- Function `fit_logitboost`: Fitting of logitboost model.

@@ -15,7 +15,7 @@ argv = sys.argv
 if len(argv) != 2:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector|fit_incremental_logistic")
+          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost")
     sys.exit(-1)
 
 if argv[1] == "fit_logistic":
@@ -660,7 +660,77 @@ elif argv[1] == "fit_incremental_logistic":
 
     plt.show()
 
+elif argv[1] == "fit_logitboost":
+    plt.figure("Logitboost")
+    granularity = 500
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+    x = X.reshape((1, X.size))
+    y = Y.reshape((1, Y.size))
+
+    mu = np.array([[-0.5, 0.5], [0.5, -0.5]])
+    sig = np.array([[2, 0], [0, 2]])
+    points_per_class = 20
+    X_data = np.append(
+        np.random.multivariate_normal(mu[0], sig, points_per_class),
+        np.random.multivariate_normal(mu[1], sig, points_per_class),
+        axis=0
+    )
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data.transpose(),
+        axis=0
+    )
+    w = np.append(
+        np.zeros((points_per_class, 1)),
+        np.ones((points_per_class, 1)),
+        axis=0
+    )
+    X_test = np.append(np.ones((1, granularity * granularity)), x, axis=0)
+    X_test = np.append(X_test, y, axis=0)
+
+    # Construct the weak classifiers' parameters
+    M = 20 * 40   # 20 angels and 40 offsets for each angle
+    Alpha = np.zeros((3, M))
+    angle_delta = 2 * np.pi / 20
+    column = 0
+    offset_delta = 1 / 40
+    angle = 0
+    for i in range(20):
+        x = np.cos(angle)
+        y = np.sin(angle)
+        offset = 0
+        for j in range(40):
+            Alpha[0, column] = offset
+            Alpha[1, column] = x
+            Alpha[2, column] = y
+            offset += offset_delta
+            column += 1
+        angle += angle_delta
+
+    Ks = [1, 5, 10, 20]
+    for index, K in enumerate(Ks):
+        plt.subplot(2, 2, index + 1)
+        predictions = classification.fit_logitboost(
+            X_train, w, X_test, Alpha, K)
+
+        Z = predictions.reshape(granularity, granularity)
+        plt.pcolor(X, Y, Z)
+
+        selector = np.arange(points_per_class)
+        plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                    50, c="r", edgecolors="w")
+
+        selector = np.arange(points_per_class, 2 * points_per_class)
+        plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                    50, c="g", edgecolors="w")
+
+        plt.axis([a, b, a, b])
+    plt.show()
+
 else:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
-          "|fit_relevance_vector|fit_incremental_logistic")
+          "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost")
