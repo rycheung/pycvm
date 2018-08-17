@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 from scipy import optimize
 import fitting
@@ -528,7 +529,7 @@ def fit_incremental_logistic(X, w, X_test, K):
                           and I is the number of training examples.
             w           - I * 1 vector containing world states for each example.
             X_test      - test examples for which we need to make predictions.
-            K           - the number of incremental stages
+            K           - the number of incremental stages.
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
     """
@@ -600,7 +601,7 @@ def fit_logitboost(X, w, X_test, Alpha, K):
             X_test      - test examples for which we need to make predictions.
             Alpha       - (D + 1) * M matrix containing the parameters for the weak 
                           classifiers in its columns.
-            K           - the number of incremental stages
+            K           - the number of incremental stages.
     Output: predictions - 1 * I_test row vector containing the predicted class values for
                           the input data in X_test.
     """
@@ -705,7 +706,7 @@ def fit_multi_logistic(X, w, X_test, class_num):
                           and I is the number of training examples.
             w           - I * 1 vector containing world states for each example.
             X_test      - test examples for which we need to make predictions.
-            class_num   - the number of classes
+            class_num   - the number of classes.
     Output: Predictions - class_num * I_test matrix containing the predicted class values for
                           the data in X_test.
     """
@@ -727,6 +728,7 @@ def fit_multi_logistic(X, w, X_test, class_num):
     Predictions = Phi_X_exp / np.sum(Phi_X_exp, axis=0)
     return Predictions
 
+
 def _fit_mclr_cost(phi, X, w, class_num):
     I = X.shape[1]
     D = X.shape[0]
@@ -739,6 +741,7 @@ def _fit_mclr_cost(phi, X, w, class_num):
         L = L - np.log(Y[int(w[i, 0]), i])
     print(L)
     return L
+
 
 def _fit_mclr_jac(phi, X, w, class_num):
     I = X.shape[1]
@@ -757,11 +760,17 @@ def _fit_mclr_jac(phi, X, w, class_num):
             start += D
     return g
 
+
 def _fit_mclr_hess(phi, X, w, class_num):
     I = X.shape[1]
     D = X.shape[0]
-    H = np.array([[] for i in range(D * class_num)]).reshape((0, D * class_num))
-    HH = [[np.zeros((D, D)) for n in range(class_num)] for m in range(class_num)]
+    H = np.array(
+        [[] for i in range(D * class_num)]
+    ).reshape((0, D * class_num))
+    HH = [
+        [np.zeros((D, D)) for n in range(class_num)]
+        for m in range(class_num)
+    ]
 
     Phi = phi.reshape((class_num, D))
     Phi_X_exp = np.exp(Phi @ X)
@@ -772,7 +781,7 @@ def _fit_mclr_hess(phi, X, w, class_num):
             for m in range(class_num):
                 temp = Y[m, i] * ((m == n) - Y[n, i]) * (X_i @ X_i.transpose())
                 HH[m][n] = HH[m][n] + temp
-    
+
     # Assemble final Hessian
     for n in range(class_num):
         H_n = np.array([[] for i in range(D)])
@@ -780,3 +789,38 @@ def _fit_mclr_hess(phi, X, w, class_num):
             H_n = np.append(H_n, HH[n][m], axis=1)
         H = np.append(H, H_n, axis=0)
     return H
+
+
+def fit_multi_logistic_tree(X, w, X_test, J, G, K):
+    """Multi-class logistic regression.
+
+    Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
+                          and I is the number of training examples.
+            w           - I * 1 vector containing world states for each example.
+            X_test      - test examples for which we need to make predictions.
+            J           - the number of nodes in the tree.
+            G           - linear functions in columns used as classifiers.
+            K           - the number of classes.
+    Output: Predictions - K * I_test matrix containing the predicted class values for
+                          the data in X_test.
+    """
+    I = X.shape[1]
+    I_test = X_test.shape[1]
+    M = G.shape[1]
+    c = np.zeros(J)
+    Lambda = np.zeros((K, J + 1))
+    G_T = G.transpose()
+    GX = sigmoid(G_T() @ X) > 0.5
+    GX_test = sigmoid(G_T @ X_test) > 0.5
+    Predictions = np.array((K, I_test))
+
+    queue = deque([np.arange(I)])
+
+    # For each node in the tree
+    for j in range(J):
+        current_data = queue.popleft()
+        II = current_data.size
+        l = np.zeros(M)
+        for m in range(M):
+            # Count frequency for k-th class in left and right branch
+            
