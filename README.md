@@ -39,3 +39,4 @@ Algorithms implementations for the book "Computer Vision: Models, Learning and I
 - Function `fit_incremental_logistic`: Incremental fitting for logistic regression.
 - Function `fit_logitboost`: Fitting of logitboost model.
 - Function `fit_multi_logistic`: Fitting of multi-class logistic regression.
+- Function `fit_multi_logistic_tree`: Fitting of multi-class logistic classification tree.

@@ -739,7 +739,6 @@ def _fit_mclr_cost(phi, X, w, class_num):
     Y = Phi_X_exp / np.sum(Phi_X_exp, axis=0)
     for i in range(I):
         L = L - np.log(Y[int(w[i, 0]), i])
-    print(L)
     return L
 
 
@@ -792,7 +791,7 @@ def _fit_mclr_hess(phi, X, w, class_num):
 
 
 def fit_multi_logistic_tree(X, w, X_test, J, G, K):
-    """Multi-class logistic regression.
+    """Multi-class logistic classification tree.
 
     Input:  X           - (D + 1) * I training data matrix, where D is the dimensionality
                           and I is the number of training examples.
@@ -807,12 +806,12 @@ def fit_multi_logistic_tree(X, w, X_test, J, G, K):
     I = X.shape[1]
     I_test = X_test.shape[1]
     M = G.shape[1]
-    c = np.zeros(J)
+    c = np.zeros(J, dtype=int)
     Lambda = np.zeros((K, J + 1))
     G_T = G.transpose()
-    GX = sigmoid(G_T() @ X) > 0.5
+    GX = sigmoid(G_T @ X) > 0.5
     GX_test = sigmoid(G_T @ X_test) > 0.5
-    Predictions = np.array((K, I_test))
+    Predictions = np.zeros((K, I_test))
 
     queue = deque([np.arange(I)])
 
@@ -823,4 +822,73 @@ def fit_multi_logistic_tree(X, w, X_test, J, G, K):
         l = np.zeros(M)
         for m in range(M):
             # Count frequency for k-th class in left and right branch
-            
+            n_l = np.zeros(K)
+            n_r = np.zeros(K)
+            for i in range(II):
+                ii = current_data[i]
+                k = int(w[ii, 0])
+                if GX[m, ii] == True:
+                    n_r[k] += 1
+                else:
+                    n_l[k] += 1
+
+            # Compute the log likelihood
+            sum_l = np.sum(n_l)
+            sum_r = np.sum(n_r)
+            # If this classifier cannot separate the data, then it
+            # should not be applied
+            if sum_l == 0 or sum_r == 0:
+                l[m] = float("inf")
+            else:
+                # Protect against zero values
+                n_l += 1
+                n_r += 1
+                sum_l += K
+                sum_r += K
+
+                # Compute log likelihood
+                norm_l = np.log(n_l / sum_l)
+                norm_r = np.log(n_r / sum_r)
+                l[m] = np.sum(norm_l) + np.sum(norm_r)
+        # Store index of best clasifier for this node
+        c[j] = np.argmin(l)
+        # Partition in two sets
+        right = GX[c[j], current_data]
+        queue.append(current_data[right])
+        queue.append(current_data[np.logical_not(right)])
+
+    # Recover categorical paramters at J+1 leaves
+    for p in range(J + 1):
+        current_data = queue.popleft()
+        II = current_data.size
+        n = np.zeros(K)
+        for i in range(II):
+            ii = current_data[i]
+            k = int(w[ii])
+            n[k] += 1
+        Lambda[:, p] = n / np.sum(n)
+    
+    # Predict by moving each test example from the root to the
+    # bottom of the tree, and then taking the corresponding
+    # categorical distribution from the leaf node
+    for i in range(I_test):
+        j = 1
+        right = 0
+        tree_level = 0
+        while True:
+            right = GX_test[c[j - 1], i]
+            new_j = 2 * j
+            if right == True:
+                new_j = new_j + 1
+            if new_j > J:
+                break
+            else:
+                j = new_j
+                tree_level += 1
+        node_index_in_last_level_left_to_right = j - 2 ** tree_level
+        if right == False:
+            leaf_node = node_index_in_last_level_left_to_right * 2 + 1
+        else:
+            leaf_node = node_index_in_last_level_left_to_right * 2 + 2
+        Predictions[:, i] = Lambda[:, leaf_node - 1]
+    return Predictions

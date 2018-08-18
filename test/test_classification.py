@@ -16,7 +16,7 @@ if len(argv) != 2:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
           "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost"
-          "|fit_multi_logistic")
+          "|fit_multi_logistic|fit_multi_logistic_tree")
     sys.exit(-1)
 
 if argv[1] == "fit_logistic":
@@ -772,8 +772,65 @@ elif argv[1] == "fit_multi_logistic":
     plt.axis([-5, 5, -0.1, 1.1])
     plt.show()
 
+elif argv[1] == "fit_multi_logistic_tree":
+    plt.figure("Logitboost")
+    granularity = 500
+    a = -5
+    b = 5
+    domain = np.linspace(a, b, granularity)
+    X, Y = np.meshgrid(domain, domain)
+    x = X.reshape((1, X.size))
+    y = Y.reshape((1, Y.size))
+
+    mu = np.array([[-0.5, -0.5], [0.5, 0.5]])
+    sig = np.array([[0.1, 0], [0, 0.1]])
+    points_per_class = 10
+    X_data = np.append(
+        np.random.multivariate_normal(mu[0], sig, points_per_class),
+        np.random.multivariate_normal(mu[1], sig, points_per_class),
+        axis=0
+    )
+    X_train = np.append(
+        np.ones((1, X_data.shape[0])),
+        X_data.transpose(),
+        axis=0
+    )
+    w = np.append(
+        np.zeros((points_per_class, 1)),
+        np.ones((points_per_class, 1)),
+        axis=0
+    )
+    X_test = np.append(np.ones((1, granularity * granularity)), x, axis=0)
+    X_test = np.append(X_test, y, axis=0)
+
+    # Construct the classifiers' parameters
+    G = np.array([
+        [0, 0, 0, 0],
+        [1, 0, np.cos(np.pi / 4), np.cos(np.pi * 3 / 4)],
+        [0, 1, np.sin(np.pi / 4), np.sin(np.pi * 3 / 4)]
+    ])
+
+    J = 1
+    K = 2
+    Predictions = classification.fit_multi_logistic_tree(X_train, w, X_test, J, G, K)
+    Predictions = Predictions[1, :]
+
+    Z = Predictions.reshape(granularity, granularity)
+    plt.pcolor(X, Y, Z)
+
+    selector = np.arange(points_per_class)
+    plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                50, c="r", edgecolors="w")
+
+    selector = np.arange(points_per_class, 2 * points_per_class)
+    plt.scatter(X_data[selector, 0], X_data[selector, 1],
+                50, c="g", edgecolors="w")
+
+    plt.axis([a, b, a, b])
+    plt.show()
+    
 else:
     print("Usage: python test_classification.py fit_logistic|fit_by_logistic"
           "|fit_dual_logistic|fit_dual_by_logistic|fit_gaussian_process"
           "|fit_relevance_vector|fit_incremental_logistic|fit_logitboost"
-          "|fit_multi_logistic")
+          "|fit_multi_logistic|fit_multi_logistic_tree")
